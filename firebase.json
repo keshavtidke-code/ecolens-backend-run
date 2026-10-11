@@ -1,0 +1,44 @@
+{
+  "functions": [
+    {
+      "source": "backend/functions",
+      "codebase": "ecolens-backend",
+      "runtime": "python312",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local",
+        "__pycache__",
+        "*.pyc",
+        "*.pyo",
+        "*.egg-info",
+        ".venv",
+        "venv",
+        "tests",
+        "*.db",
+        "*.db-shm",
+        "*.db-wal"
+      ]
+    }
+  ],
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/api/v1/**",
+        "function": "ecolens_api"
+      },
+      {
+        "source": "/health",
+        "function": "ecolens_api"
+      }
+    ]
+  }
+}
