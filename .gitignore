@@ -1,0 +1,10 @@
+﻿# Temp staging files created by AI assistant
+_tmp_*
+
+# Build artifacts
+*.zip
+*.tar.gz
+
+# OS
+.DS_Store
+Thumbs.db
