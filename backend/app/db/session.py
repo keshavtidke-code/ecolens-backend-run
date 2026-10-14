@@ -21,7 +21,15 @@ def _sqlite_pragmas(dbapi_connection, _record) -> None:
 
 
 def build_engine(settings: Settings) -> Engine:
-    url = make_url(settings.database_url)
+    # SQLAlchemy 2.x defaults plain postgresql:// URLs to the psycopg (v3) driver.
+    # We ship psycopg2-binary, so normalise the scheme to force the right dialect.
+    db_url = settings.database_url
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql+psycopg2://", 1)
+    elif db_url.startswith("postgresql://") and "+psycopg" not in db_url:
+        db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+    url = make_url(db_url)
     kwargs: dict = {"echo": settings.db_echo, "pool_pre_ping": True}
     is_sqlite = url.get_backend_name() == "sqlite"
     if is_sqlite:
@@ -34,7 +42,7 @@ def build_engine(settings: Settings) -> Engine:
         kwargs["max_overflow"] = 2
         kwargs["pool_recycle"] = 300  # recycle connections every 5 min
         kwargs["connect_args"] = {"sslmode": "require"}  # Supabase requires SSL
-    engine = create_engine(settings.database_url, **kwargs)
+    engine = create_engine(db_url, **kwargs)
     if is_sqlite:
         event.listen(engine, "connect", _sqlite_pragmas)
     return engine
