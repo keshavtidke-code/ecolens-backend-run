@@ -1,4 +1,4 @@
-services:
+﻿services:
   - type: web
     name: ecolens-api
     runtime: python
@@ -9,7 +9,7 @@ services:
     buildCommand: pip install -r requirements.txt
 
     # Render sets PORT automatically; uvicorn must bind to it.
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
 
     # Health-check so Render knows when the instance is ready.
     healthCheckPath: /health
@@ -23,8 +23,8 @@ services:
       - key: API_V1_PREFIX
         value: /api/v1
 
-      # --- Database (Supabase PostgreSQL — persistent & free) ---
-      # Get this from: Supabase dashboard → Project Settings → Database → Connection string → URI
+      # --- Database (Supabase PostgreSQL â€” persistent & free) ---
+      # Get this from: Supabase dashboard â†’ Project Settings â†’ Database â†’ Connection string â†’ URI
       # Format: postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres
       - key: DATABASE_URL
         sync: false          # set this secret in the Render dashboard
@@ -80,3 +80,4 @@ services:
         sync: false
       - key: SUPABASE_SECRET_KEY
         sync: false
+
