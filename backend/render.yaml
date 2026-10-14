@@ -23,16 +23,17 @@ services:
       - key: API_V1_PREFIX
         value: /api/v1
 
-      # --- Database ---
-      # SQLite persists in Render's /data disk (free tier has 1 GB).
-      # The path /data/ecolens.db survives redeploys on a persistent disk.
+      # --- Database (Supabase PostgreSQL — persistent & free) ---
+      # Get this from: Supabase dashboard → Project Settings → Database → Connection string → URI
+      # Format: postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres
       - key: DATABASE_URL
-        value: sqlite:////data/ecolens.db
+        sync: false          # set this secret in the Render dashboard
 
       # --- Storage ---
-      # /data persists on Render's free disk.
+      # /tmp is available on free tier but is ephemeral (cleared on restart).
+      # For persistent image storage use Supabase Storage (see README).
       - key: STORAGE_DIR
-        value: /data/storage
+        value: /tmp/ecolens-storage
 
       # --- Security (set these as secrets in Render dashboard) ---
       - key: SECRET_KEY
@@ -79,8 +80,3 @@ services:
         sync: false
       - key: SUPABASE_SECRET_KEY
         sync: false
-
-    disk:
-      name: ecolens-data
-      mountPath: /data
-      sizeGB: 1              # free-tier persistent disk

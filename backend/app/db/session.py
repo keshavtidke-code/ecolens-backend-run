@@ -28,6 +28,12 @@ def build_engine(settings: Settings) -> Engine:
         kwargs["connect_args"] = {"check_same_thread": False, "timeout": 15}
         if url.database and url.database != ":memory:":
             Path(url.database).parent.mkdir(parents=True, exist_ok=True)
+    else:
+        # PostgreSQL (Supabase) — conservative pool for free-tier Render instances.
+        kwargs["pool_size"] = 3
+        kwargs["max_overflow"] = 2
+        kwargs["pool_recycle"] = 300  # recycle connections every 5 min
+        kwargs["connect_args"] = {"sslmode": "require"}  # Supabase requires SSL
     engine = create_engine(settings.database_url, **kwargs)
     if is_sqlite:
         event.listen(engine, "connect", _sqlite_pragmas)
