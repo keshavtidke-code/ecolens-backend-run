@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, pool
 import app.models  # noqa: F401  (registers all tables on Base.metadata)
 from app.core.settings import get_settings
 from app.db.base import Base
-from app.db.session import _normalise_pg_url  # reuse the same normalisation
+from app.db.session import _normalise_pg_url  # same normalisation as the app
 
 config = context.config
 if config.config_file_name is not None:
@@ -36,9 +36,14 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     connect_args: dict = {}
     if not is_sqlite:
+        # psycopg v3 libpq keywords
         connect_args = {"sslmode": "require", "connect_timeout": 10}
 
-    engine = create_engine(database_url, poolclass=pool.NullPool, connect_args=connect_args)
+    engine = create_engine(
+        database_url,
+        poolclass=pool.NullPool,
+        connect_args=connect_args,
+    )
     with engine.connect() as connection:
         context.configure(connection=connection, **_opts)
         with context.begin_transaction():

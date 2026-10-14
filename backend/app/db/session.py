@@ -6,13 +6,14 @@ import re
 from collections.abc import Iterator
 from pathlib import Path
 
-from sqlalchemy import Engine, create_engine, event, text
+from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.settings import Settings, get_settings
 
 logger = logging.getLogger(__name__)
+
 
 # ---------------------------------------------------------------------------
 # URL helpers
@@ -25,14 +26,15 @@ def _redact_password(url: str) -> str:
 
 def _normalise_pg_url(raw: str) -> str:
     """
-    Render (and many PaaS providers) emit  postgres://  or  postgresql://
-    without a driver qualifier.  We ship psycopg2-binary, so we force the
-    dialect to postgresql+psycopg2 exactly once.
+    Render / Supabase emit  postgres://  or  postgresql://  without a driver
+    qualifier.  SQLAlchemy 2.1 defaults plain postgresql:// to psycopg (v3).
+    We ship psycopg[binary] (v3), so we force the dialect explicitly so the
+    behaviour is deterministic even if requirements change in future.
     """
     if raw.startswith("postgres://"):
-        return raw.replace("postgres://", "postgresql+psycopg2://", 1)
+        return raw.replace("postgres://", "postgresql+psycopg://", 1)
     if raw.startswith("postgresql://") and "+psycopg" not in raw:
-        return raw.replace("postgresql://", "postgresql+psycopg2://", 1)
+        return raw.replace("postgresql://", "postgresql+psycopg://", 1)
     return raw
 
 
@@ -42,12 +44,12 @@ def _normalise_pg_url(raw: str) -> str:
 
 def build_engine(settings: Settings) -> Engine:
     db_url = _normalise_pg_url(settings.database_url)
-    logger.info("Building engine for backend: %s", _redact_password(db_url))
+    logger.info("Building engine: %s", _redact_password(db_url))
 
     url = make_url(db_url)
     kwargs: dict = {
         "echo": settings.db_echo,
-        "pool_pre_ping": True,  # discard stale connections before use
+        "pool_pre_ping": True,
     }
 
     is_sqlite = url.get_backend_name() == "sqlite"
@@ -57,19 +59,15 @@ def build_engine(settings: Settings) -> Engine:
         if url.database and url.database != ":memory:":
             Path(url.database).parent.mkdir(parents=True, exist_ok=True)
     else:
-        # PostgreSQL on Render free tier.
-        # connect_timeout: fail fast instead of hanging when the DB is unreachable.
-        # sslmode: Render Postgres requires SSL on both internal and external URLs.
+        # psycopg v3 (libpq) keyword args — same names as psycopg2 for these.
         kwargs["connect_args"] = {
-            "sslmode": "require",
-            "connect_timeout": 10,  # seconds; prevents the endless hang on /auth/me
+            "sslmode": "require",       # Supabase / Render Postgres require SSL
+            "connect_timeout": 10,      # fail fast; prevents endless hang on /auth/me
         }
         kwargs["pool_size"] = 3
         kwargs["max_overflow"] = 2
-        kwargs["pool_recycle"] = 300          # recycle connections every 5 min
-        kwargs["pool_timeout"] = 15           # raise after 15 s waiting for a pool slot
-        # statement timeout via server-side execution option (psycopg2 syntax)
-        kwargs["execution_options"] = {"timeout": 30}
+        kwargs["pool_recycle"] = 300    # recycle connections every 5 min
+        kwargs["pool_timeout"] = 15     # raise after 15 s waiting for a pool slot
 
     engine = create_engine(db_url, **kwargs)
 
