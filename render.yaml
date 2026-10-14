@@ -1,0 +1,78 @@
+services:
+  - type: web
+    name: ecolens-api
+    runtime: python
+    region: oregon          # free-tier region
+    plan: free
+
+    # Build and start commands use backend/ prefix since repo root is the working dir.
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+
+    # Health-check so Render knows when the instance is ready.
+    healthCheckPath: /health
+
+    envVars:
+      # --- App ---
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: API_V1_PREFIX
+        value: /api/v1
+
+      # --- Database (Supabase PostgreSQL — persistent & free) ---
+      # Get from: Supabase dashboard → Project Settings → Database → Connection string → URI
+      # Format: postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres
+      - key: DATABASE_URL
+        sync: false
+
+      # --- Storage ---
+      - key: STORAGE_DIR
+        value: /tmp/ecolens-storage
+
+      # --- Security ---
+      - key: SECRET_KEY
+        sync: false
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "30"
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: "30"
+
+      # --- CORS ---
+      - key: CORS_ORIGINS
+        value: "http://localhost:8081,http://localhost:19006,http://localhost:3000"
+
+      # --- Logging ---
+      - key: LOG_LEVEL
+        value: INFO
+      - key: LOG_FORMAT
+        value: json
+
+      # --- Gemini AI ---
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.8-flash
+      - key: GEMINI_TIMEOUT_S
+        value: "60"
+      - key: GEMINI_MAX_OUTPUT_TOKENS
+        value: "8192"
+
+      # --- Weather / Geocoding ---
+      - key: EXTERNAL_LOOKUPS_ENABLED
+        value: "true"
+      - key: PROVIDER_TIMEOUT_S
+        value: "15"
+      - key: GEOCODING_USER_AGENT
+        value: "EcoLens/0.1 (ecolens-dev@localhost.local)"
+
+      # --- Supabase ---
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
