@@ -119,7 +119,9 @@ class Settings(BaseSettings):
     @field_validator("storage_dir")
     @classmethod
     def _absolute_storage_dir(cls, value: Path) -> Path:
-        return value if value.is_absolute() else (BASE_DIR / value).resolve()
+        # Absolute paths (e.g. /data/storage on Render) are used as-is.
+        # Relative paths (e.g. "storage" in local dev) resolve from BASE_DIR.
+        return value.resolve() if value.is_absolute() else (BASE_DIR / value).resolve()
 
     @model_validator(mode="after")
     def _production_guards(self) -> "Settings":
