@@ -1,4 +1,4 @@
-﻿services:
+services:
   - type: web
     name: ecolens-api
     runtime: python
@@ -8,7 +8,8 @@
 
     buildCommand: pip install -r requirements.txt
 
-    # Render sets PORT automatically; uvicorn must bind to it.
+    # Tables already created via Supabase SQL Editor (schema v0003).
+    # alembic upgrade head will detect version 0003 and skip — safe to keep.
     startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
 
     # Health-check so Render knows when the instance is ready.
@@ -23,31 +24,25 @@
       - key: API_V1_PREFIX
         value: /api/v1
 
-      # --- Database (Supabase PostgreSQL â€” persistent & free) ---
-      # Get this from: Supabase dashboard â†’ Project Settings â†’ Database â†’ Connection string â†’ URI
-      # Format: postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres
+      # --- Database ---
+      # Use Transaction Pooler URL (port 6543, IPv4) — NOT the direct connection (IPv6).
+      # Format: postgresql://postgres.[ref]:[PASSWORD]@aws-0-<region>.pooler.supabase.com:6543/postgres
+      # Get from: Supabase → Settings → Database → Connection string → Transaction pooler → URI
       - key: DATABASE_URL
         sync: false          # set this secret in the Render dashboard
 
       # --- Storage ---
       # /tmp is available on free tier but is ephemeral (cleared on restart).
-      # For persistent image storage use Supabase Storage (see README).
       - key: STORAGE_DIR
         value: /tmp/ecolens-storage
+      - key: MAX_UPLOAD_MB
+        value: "10"
 
-      # --- Security (set these as secrets in Render dashboard) ---
-      - key: SECRET_KEY
-        sync: false          # prompts you to set it in the Render dashboard
-      - key: JWT_ALGORITHM
-        value: HS256
-      - key: ACCESS_TOKEN_EXPIRE_MINUTES
-        value: "30"
-      - key: REFRESH_TOKEN_EXPIRE_DAYS
-        value: "30"
-
-      # --- CORS (add your frontend URL once deployed) ---
+      # --- CORS (add your frontend/mobile app URL here) ---
       - key: CORS_ORIGINS
-        value: "http://localhost:8081,http://localhost:19006,http://localhost:3000"
+        value: "http://localhost:8081,http://localhost:19006,http://localhost:3000,http://10.0.2.2:8081,http://10.0.2.2:19006"
+      - key: CORS_ALLOW_CREDENTIALS
+        value: "false"
 
       # --- Logging ---
       - key: LOG_LEVEL
@@ -57,13 +52,17 @@
 
       # --- Gemini AI (set as secret in Render dashboard) ---
       - key: GEMINI_API_KEY
-        sync: false           # prompts you to set it in the Render dashboard
+        sync: false
       - key: GEMINI_MODEL
         value: gemini-3.8-flash
       - key: GEMINI_TIMEOUT_S
         value: "60"
       - key: GEMINI_MAX_OUTPUT_TOKENS
         value: "8192"
+      - key: ANALYSIS_STALE_AFTER_S
+        value: "300"
+      - key: LOW_CONFIDENCE_THRESHOLD
+        value: "0.5"
 
       # --- Weather / Geocoding (no API key needed) ---
       - key: EXTERNAL_LOOKUPS_ENABLED
@@ -72,12 +71,35 @@
         value: "15"
       - key: GEOCODING_USER_AGENT
         value: "EcoLens/0.1 (ecolens-dev@localhost.local)"
+      - key: GEOCODING_MIN_INTERVAL_S
+        value: "1.0"
+      - key: GEOCODING_CACHE_TTL_S
+        value: "86400"
+      - key: WEATHER_CACHE_TTL_S
+        value: "600"
 
-      # --- Supabase (set as secrets in Render dashboard) ---
+      # --- Chat ---
+      - key: CHAT_HISTORY_MESSAGES
+        value: "10"
+      - key: CHAT_MAX_ATTEMPTS
+        value: "3"
+      - key: CHAT_RETRY_BACKOFF_S
+        value: "0.5"
+      - key: CHAT_REQUEST_TIMEOUT_S
+        value: "25"
+      - key: CHAT_TOTAL_TIMEOUT_S
+        value: "50"
+      - key: CHAT_RATE_LIMIT_PER_MINUTE
+        value: "10"
+      - key: CHAT_RATE_LIMIT_PER_HOUR
+        value: "100"
+
+      # --- Supabase Auth (set as secrets in Render dashboard) ---
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_PUBLISHABLE_KEY
         sync: false
       - key: SUPABASE_SECRET_KEY
         sync: false
-
+      - key: SUPABASE_JWKS_URL
+        sync: false
