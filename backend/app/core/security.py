@@ -1,62 +1,68 @@
-"""Password hashing and JWT helpers."""
+"""Supabase JWT verification.
+
+Supabase issues HS256 JWTs signed with the project's JWT secret
+(Settings.supabase_secret_key / ``SUPABASE_SECRET_KEY``).
+
+We verify the token locally with PyJWT so no extra network round-trip is
+needed on every request.  The Supabase JWT payload includes:
+
+    sub   – the user's UUID (auth.users.id)
+    role  – "authenticated" | "anon" | "service_role"
+    email – user's email (present when role=="authenticated")
+    exp   – expiry timestamp
+"""
 from __future__ import annotations
 
 import uuid
-from datetime import timedelta
-from typing import Any, Literal
+from typing import Any
 
-import bcrypt
 import jwt
 
 from app.core.exceptions import UnauthorizedError
 from app.core.settings import get_settings
-from app.core.utils import utcnow
-
-TokenType = Literal["access", "refresh"]
-
-# Used to keep login timing similar whether or not the email exists.
-_DUMMY_HASH = bcrypt.hashpw(b"ecolens-dummy", bcrypt.gensalt()).decode()
 
 
-def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+def verify_supabase_token(token: str) -> dict[str, Any]:
+    """Decode and verify a Supabase-issued JWT.
 
-
-def verify_password(password: str, password_hash: str | None) -> bool:
-    try:
-        return bcrypt.checkpw(password.encode("utf-8"), (password_hash or _DUMMY_HASH).encode("utf-8")) and (
-            password_hash is not None
+    Returns the full payload dict on success.
+    Raises :class:`UnauthorizedError` on any failure.
+    """
+    settings = get_settings()
+    if not settings.supabase_secret_key:
+        raise UnauthorizedError(
+            "Supabase is not configured on this server.",
+            code="supabase_not_configured",
         )
-    except ValueError:
-        return False
 
+    secret = settings.supabase_secret_key.get_secret_value()
 
-def create_token(subject: str | int, token_type: TokenType) -> tuple[str, int]:
-    """Return (encoded_token, lifetime_in_seconds)."""
-    settings = get_settings()
-    lifetime = (
-        timedelta(minutes=settings.access_token_expire_minutes)
-        if token_type == "access"
-        else timedelta(days=settings.refresh_token_expire_days)
-    )
-    now = utcnow()
-    payload = {
-        "sub": str(subject),
-        "type": token_type,
-        "iat": now,
-        "exp": now + lifetime,
-        "jti": uuid.uuid4().hex,
-    }
-    token = jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
-    return token, int(lifetime.total_seconds())
-
-
-def decode_token(token: str, expected_type: TokenType) -> dict[str, Any]:
-    settings = get_settings()
     try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
+        payload: dict[str, Any] = jwt.decode(
+            token,
+            secret,
+            algorithms=["HS256"],
+            options={"require": ["sub", "exp"]},
+        )
+    except jwt.ExpiredSignatureError:
+        raise UnauthorizedError("Token has expired.", code="token_expired") from None
     except jwt.PyJWTError:
-        raise UnauthorizedError("Invalid or expired token.", code="invalid_token") from None
-    if payload.get("type") != expected_type or not payload.get("sub"):
-        raise UnauthorizedError("Invalid token type.", code="invalid_token")
+        raise UnauthorizedError("Invalid token.", code="invalid_token") from None
+
+    # Reject anonymous / service-role tokens — only authenticated users may call the API.
+    role = payload.get("role", "")
+    if role not in ("authenticated", "service_role"):
+        raise UnauthorizedError(
+            "Access requires an authenticated Supabase session.",
+            code="unauthenticated",
+        )
+
     return payload
+
+
+def user_id_from_payload(payload: dict[str, Any]) -> uuid.UUID:
+    """Extract and validate the user UUID from a verified JWT payload."""
+    try:
+        return uuid.UUID(payload["sub"])
+    except (KeyError, ValueError):
+        raise UnauthorizedError("Token has no valid subject.", code="invalid_token") from None

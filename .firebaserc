@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "YOUR_FIREBASE_PROJECT_ID"
+    "default": "ecolens-backend-dfe63"
   }
 }
+

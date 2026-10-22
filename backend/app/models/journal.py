@@ -1,6 +1,8 @@
+import uuid
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import ForeignKey, Index, String, Text, false
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -16,7 +18,9 @@ class JournalEntry(TimestampMixin, Base):
     __table_args__ = (Index("ix_journal_entries_user_id_updated_at", "user_id", "updated_at"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     observation_id: Mapped[int] = mapped_column(
         ForeignKey("observations.id", ondelete="CASCADE"), unique=True, nullable=False
     )

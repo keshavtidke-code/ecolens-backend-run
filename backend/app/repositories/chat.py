@@ -1,3 +1,4 @@
+import uuid
 from typing import Optional
 
 from sqlalchemy import select
@@ -14,7 +15,7 @@ class ChatRepository:
         stmt = select(ChatThread).where(ChatThread.observation_id == observation_id)
         return self.db.scalars(stmt).first()
 
-    def create_thread(self, observation_id: int, user_id: int) -> ChatThread:
+    def create_thread(self, observation_id: int, user_id: uuid.UUID) -> ChatThread:
         thread = ChatThread(observation_id=observation_id, user_id=user_id)
         self.db.add(thread)
         self.db.commit()

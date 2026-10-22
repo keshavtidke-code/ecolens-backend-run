@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
+import uuid
 
 from sqlalchemy import CheckConstraint, ForeignKey, Index, String, Text
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -33,7 +35,9 @@ class Observation(TimestampMixin, Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     captured_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
     latitude: Mapped[float] = mapped_column(nullable=False)
     longitude: Mapped[float] = mapped_column(nullable=False)

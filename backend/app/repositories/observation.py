@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from typing import Optional
 
@@ -26,7 +27,7 @@ class ObservationRepository:
         self.db.commit()
 
     def get_for_user(
-        self, observation_id: int, user_id: int, *, detail: bool = False
+        self, observation_id: int, user_id: uuid.UUID, *, detail: bool = False
     ) -> Optional[Observation]:
         stmt = select(Observation).where(
             Observation.id == observation_id, Observation.user_id == user_id
@@ -43,7 +44,7 @@ class ObservationRepository:
 
     def list_for_user(
         self,
-        user_id: int,
+        user_id: uuid.UUID,
         *,
         limit: int,
         cursor: Optional[int] = None,

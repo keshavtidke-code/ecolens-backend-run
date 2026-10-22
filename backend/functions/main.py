@@ -1,4 +1,16 @@
-"""Firebase Cloud Functions Gen 2 — FastAPI (ASGI) entry point via Mangum."""
+"""ASGI entry point for Supabase / Render deployment.
+
+Previously this was a Firebase Cloud Functions Gen 2 adapter.
+It has been replaced with a plain uvicorn-compatible ASGI entry so that the
+backend can be deployed as a standard web service on Render (or any platform
+that supports ASGI / WSGI apps).
+
+Usage (Render / Procfile):
+    uvicorn functions.main:app --host 0.0.0.0 --port $PORT
+
+Or just use the backend directly (preferred):
+    uvicorn app.main:app --host 0.0.0.0 --port $PORT
+"""
 from __future__ import annotations
 
 import os
@@ -12,38 +24,8 @@ _BACKEND_DIR = os.path.dirname(_FUNCTIONS_DIR)
 if _BACKEND_DIR not in sys.path:
     sys.path.insert(0, _BACKEND_DIR)
 
-# ---------------------------------------------------------------------------
-# Firebase Admin SDK bootstrap (must happen before any other firebase_admin call)
-# ---------------------------------------------------------------------------
-import firebase_admin  # noqa: E402
-from firebase_functions import https_fn  # noqa: E402
+# Re-export the FastAPI ASGI application so this module can also be used as an
+# entry point: `uvicorn functions.main:app`
+from app.main import app  # noqa: E402  # re-exported ASGI app
 
-if not firebase_admin._apps:
-    firebase_admin.initialize_app()
-
-# ---------------------------------------------------------------------------
-# FastAPI app + Mangum ASGI adapter
-# ---------------------------------------------------------------------------
-from mangum import Mangum  # noqa: E402
-
-from app.main import app as fastapi_app  # noqa: E402
-
-# Mangum wraps our FastAPI (ASGI) app so it can receive Cloud Functions requests.
-# lifespan="off" avoids the async startup/shutdown lifecycle clashing with the
-# synchronous Cloud Functions runtime.
-_handler = Mangum(fastapi_app, lifespan="off")
-
-
-# ---------------------------------------------------------------------------
-# Cloud Function definition
-# ---------------------------------------------------------------------------
-@https_fn.on_request(
-    region="us-central1",
-    memory=https_fn.options.MemoryOption.MB_512,
-    timeout_sec=60,
-    min_instances=0,
-    max_instances=10,
-)
-def ecolens_api(req: https_fn.Request) -> https_fn.Response:
-    """Route all HTTP requests for the EcoLens API to the FastAPI application."""
-    return _handler(req, None)  # Mangum adapts the Firebase request → ASGI
+__all__ = ["app"]

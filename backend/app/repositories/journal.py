@@ -1,3 +1,4 @@
+import uuid
 from typing import Optional
 
 from sqlalchemy import select
@@ -22,7 +23,7 @@ class JournalRepository:
         self.db.delete(entry)
         self.db.commit()
 
-    def get_for_user(self, entry_id: int, user_id: int) -> Optional[JournalEntry]:
+    def get_for_user(self, entry_id: int, user_id: uuid.UUID) -> Optional[JournalEntry]:
         stmt = (
             select(JournalEntry)
             .where(JournalEntry.id == entry_id, JournalEntry.user_id == user_id)
@@ -36,7 +37,7 @@ class JournalRepository:
 
     def list_for_user(
         self,
-        user_id: int,
+        user_id: uuid.UUID,
         *,
         limit: int,
         cursor: Optional[int] = None,

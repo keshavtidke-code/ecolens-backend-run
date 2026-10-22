@@ -1,4 +1,4 @@
-# Runtime dependencies for the FastAPI backend + Firebase Cloud Functions adapter
+# Runtime dependencies for the FastAPI backend (Supabase / Render deployment)
 # -----------------------------------------------------------------------
 # Core FastAPI stack
 fastapi==0.142.2
@@ -11,12 +11,4 @@ python-multipart==0.0.32
 PyJWT==2.7.0
 bcrypt==5.0.0
 httpx==0.28.1
-
-# -----------------------------------------------------------------------
-# Firebase / Cloud Functions runtime
-firebase-functions>=0.1.0
-firebase-admin>=6.0.0
-
-# -----------------------------------------------------------------------
-# ASGI → Cloud Functions bridge
-mangum>=0.17.0
+psycopg[binary]>=3.1.0

@@ -1,7 +1,9 @@
+import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import ForeignKey, Index, String, Text
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.utils import utcnow
@@ -23,8 +25,8 @@ class ChatThread(TimestampMixin, Base):
     observation_id: Mapped[int] = mapped_column(
         ForeignKey("observations.id", ondelete="CASCADE"), unique=True, nullable=False
     )
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
     )
 
     observation: Mapped["Observation"] = relationship(back_populates="chat_thread")

@@ -10,7 +10,6 @@ from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parents[2]  # the backend/ directory
-INSECURE_SECRET = "change-me-in-production"
 
 
 def _split_list(value: object) -> object:
@@ -41,12 +40,6 @@ class Settings(BaseSettings):
     # --- Database ---
     database_url: str = "sqlite:///./ecolens.db"
     db_echo: bool = False
-
-    # --- Security ---
-    secret_key: str = INSECURE_SECRET
-    jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
-    refresh_token_expire_days: int = 30
 
     # --- CORS ---
     cors_origins: Annotated[list[str], NoDecode] = [
@@ -101,7 +94,17 @@ class Settings(BaseSettings):
     chat_rate_limit_per_minute: int = 10  # per user; 0 disables
     chat_rate_limit_per_hour: int = 100  # per user; 0 disables
 
-    @field_validator("gemini_api_key", "gemini_temperature", mode="before")
+    # --- Supabase (database + optional storage / auth) ---
+    # Get these from: Supabase dashboard → Project Settings → API
+    supabase_url: Optional[str] = None  # e.g. https://<project>.supabase.co
+    supabase_publishable_key: Optional[SecretStr] = None  # anon/public key
+    supabase_secret_key: Optional[SecretStr] = None  # service_role key (server-side only)
+
+    @field_validator(
+        "gemini_api_key", "gemini_temperature",
+        "supabase_publishable_key", "supabase_secret_key",
+        mode="before",
+    )
     @classmethod
     def _blank_is_none(cls, value: object) -> object:
         return None if isinstance(value, str) and not value.strip() else value
@@ -126,8 +129,10 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _production_guards(self) -> "Settings":
         if self.environment == "production":
-            if self.secret_key == INSECURE_SECRET or len(self.secret_key) < 32:
-                raise ValueError("SECRET_KEY must be a random string of 32+ characters in production.")
+            if not self.supabase_secret_key:
+                raise ValueError(
+                    "SUPABASE_SECRET_KEY must be set in production."
+                )
             if self.debug:
                 raise ValueError("DEBUG must be false in production.")
         return self

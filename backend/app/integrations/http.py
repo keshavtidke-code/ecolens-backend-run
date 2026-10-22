@@ -32,6 +32,7 @@ def get_json(client: httpx.Client, url: str, *, params: dict[str, Any], kind: st
 
     for attempt in range(1, _MAX_ATTEMPTS + 1):
         try:
+            
             response = client.get(url, params=params)
         except httpx.TimeoutException:
             elapsed = time.perf_counter() - started
