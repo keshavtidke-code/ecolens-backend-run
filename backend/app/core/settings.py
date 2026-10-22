@@ -41,6 +41,23 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./ecolens.db"
     db_echo: bool = False
 
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _ensure_ssl_for_supabase(cls, value: object) -> object:
+        """Automatically add sslmode=require for Supabase PostgreSQL URLs.
+
+        Render's free tier only supports IPv4.  The Supabase Transaction Pooler
+        (port 6543, host *.pooler.supabase.com) is IPv4 and must use SSL.
+        """
+        if not isinstance(value, str):
+            return value
+        supabase_hosts = ("supabase.co", "supabase.com", "pooler.supabase.com")
+        if any(h in value for h in supabase_hosts):
+            if "sslmode" not in value:
+                sep = "&" if "?" in value else "?"
+                value = f"{value}{sep}sslmode=require"
+        return value
+
     # --- CORS ---
     cors_origins: Annotated[list[str], NoDecode] = [
         "http://localhost:8081",
@@ -99,6 +116,7 @@ class Settings(BaseSettings):
     supabase_url: Optional[str] = None  # e.g. https://<project>.supabase.co
     supabase_publishable_key: Optional[SecretStr] = None  # anon/public key
     supabase_secret_key: Optional[SecretStr] = None  # service_role key (server-side only)
+    supabase_jwks_url: Optional[str] = None  # .well-known/jwks.json — for RS256 verification
 
     @field_validator(
         "gemini_api_key", "gemini_temperature",
